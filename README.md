@@ -23,13 +23,14 @@ pocs/
   policy-assistant/         POC A scenario and acceptance notes
   service-status/           POC B planned scenario and acceptance notes
   sre-copilot/              POC C planned scenario and acceptance notes
-.github/workflow-drafts/    Inactive, incomplete workflow design
+.github/workflows/          CI tests and container build
+.github/workflow-drafts/    Historical pre-activation draft
 Dockerfile                  Draft application image
 compose.yaml                Draft application services
 pyproject.toml / uv.lock    Dependency declarations and resolved versions
 requirements.lock.txt      Hash-pinned application dependencies
 ```
 
-The CI draft is intentionally outside `.github/workflows` while its development lock input and clean-checkout execution remain incomplete. Activating tested CI is P2.3. Run/lifecycle instructions will be completed at P1.5; no backend delivery is implied by these files.
+The active CI workflow installs requirements-dev.lock.txt with hash verification, checks lint/format, runs HTTP/contract/telemetry tests and builds the synthetic container. Its historical draft is retained separately. GitHub run evidence is recorded in the lab; the complete P2.3 end-to-end/release exit remains separate. Run/lifecycle instructions will be completed at P1.5; no backend delivery is implied by these files.
 
 Azure resources belong to infra; Collector/OneAgent/backend/dashboard configuration belongs to observability-config; coordination, HLD and evidence belong to lab. Never commit credentials, virtual environments, downloaded binaries or raw customer data.
