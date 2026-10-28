@@ -1,6 +1,6 @@
 # AI agent workloads
 
-Verified public GitHub repository: `javedkumail/ai-agent-workloads`. Initial source publication is being verified; local GitHub remotes are configured. The delivery plan is approved; this first publication remains a development baseline.
+Verified public GitHub repository: `AI-SRE-Oberveability/ai-agent-workloads`. Reviewed source is published under the organization; local GitHub remotes are configured. The delivery plan is approved; this first publication remains a development baseline.
 
 This repository owns the application code, contracts, images, tests and application deployments for three distinct POCs:
 
