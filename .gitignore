@@ -1,0 +1,15 @@
+.venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.runtime/
+*.pyc
+*.log
+*.pem
+*.key
+*.pfx
+*.p12
+credentials.json

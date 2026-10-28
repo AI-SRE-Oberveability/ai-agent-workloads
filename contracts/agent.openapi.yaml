@@ -1,0 +1,113 @@
+openapi: 3.1.0
+info:
+  title: Synthetic Housing Policy Agent
+  version: 0.1.0
+  description: Local synthetic advisory demonstration. Deterministic mock; no real eligibility decisions.
+servers:
+  - url: http://127.0.0.1:18080
+security:
+  - LabKey: []
+paths:
+  /healthz:
+    get:
+      operationId: health
+      security: []
+      responses:
+        '200':
+          description: Process is running; does not attest telemetry delivery.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, model_mode]
+                properties:
+                  status: {const: ok}
+                  model_mode: {const: deterministic-mock}
+  /v1/ask:
+    post:
+      operationId: ask
+      description: Bounded plan, retrieval and answer. Domain failures return a typed outcome in HTTP 200; callers must inspect outcome. Never executes arbitrary tools.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AskRequest'}
+      responses:
+        '200':
+          description: A completed or bounded failed run.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AskResponse'}
+        '401':
+          description: Missing or incorrect lab key.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '403':
+          description: Synthetic fault injection is disabled.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '422':
+          description: Invalid input; response never repeats submitted content.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '500':
+          description: Sanitized internal failure.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+components:
+  securitySchemes:
+    LabKey: {type: apiKey, in: header, name: X-Lab-Key}
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [detail]
+      properties:
+        detail: {type: string}
+    AskRequest:
+      type: object
+      additionalProperties: false
+      required: [question]
+      properties:
+        question: {type: string, minLength: 1, maxLength: 512}
+        scenario:
+          type: string
+          default: healthy
+          enum: [healthy, empty, timeout, rate_limit, server_error, malformed, model_timeout]
+        max_steps: {type: integer, minimum: 1, maximum: 3, default: 3}
+        max_tool_calls: {type: integer, minimum: 0, maximum: 2, default: 2}
+        timeout_ms: {type: integer, minimum: 50, maximum: 5000, default: 2000}
+    Citation:
+      type: object
+      additionalProperties: false
+      required: [document_id, title]
+      properties:
+        document_id: {type: string}
+        title: {type: string}
+    AskResponse:
+      type: object
+      additionalProperties: false
+      required: [outcome, answer, citations, model_mode, usage, trace_id, steps, tool_calls]
+      properties:
+        outcome:
+          type: string
+          enum: [success, no_evidence, unsupported, tool_error, budget_exhausted, deadline_exceeded]
+        answer: {type: string}
+        citations:
+          type: array
+          items: {$ref: '#/components/schemas/Citation'}
+        model_mode: {const: deterministic-mock}
+        usage:
+          type: object
+          additionalProperties: false
+          required: [input_tokens, output_tokens]
+          properties:
+            input_tokens: {type: 'null'}
+            output_tokens: {type: 'null'}
+        trace_id: {type: string, pattern: '^[0-9a-f]{32}$'}
+        steps: {type: integer, minimum: 0, maximum: 3}
+        tool_calls: {type: integer, minimum: 0, maximum: 2}

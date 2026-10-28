@@ -1,0 +1,12 @@
+{
+  "repair": {
+    "document_id": "SYN-REPAIR-001",
+    "title": "Invented repair assistance policy v1",
+    "text": "SYNTHETIC DEMO ONLY. In the fictional Cedar District, a repair-assistance request requires a completed form and a fictional inspection reference. A human reviewer assesses each request. This does not establish real-world eligibility."
+  },
+  "application": {
+    "document_id": "SYN-APPLY-001",
+    "title": "Invented application process v1",
+    "text": "SYNTHETIC DEMO ONLY. A fictional Cedar District application follows three steps: prepare the demonstration form, attach a fictional inspection reference, and request human review. No real identity documents should be submitted."
+  }
+}

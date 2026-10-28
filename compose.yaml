@@ -1,0 +1,41 @@
+services:
+  agent:
+    image: personal-ai-lab-workloads:0.1.0
+    build:
+      context: .
+    environment:
+      LAB_API_KEY: ${LAB_API_KEY:?Run the lab init command first}
+      ALLOW_FAULTS: "1"
+      RETRIEVAL_URL: http://retrieval:8080
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://collector:4318
+      LAB_VERSION: ${LAB_VERSION:-0.1.0-local}
+    ports: ["127.0.0.1:18080:8080"]
+    depends_on: [retrieval]
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 256m
+    cpus: 1.0
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: "2"}
+  retrieval:
+    image: personal-ai-lab-workloads:0.1.0
+    build:
+      context: .
+    command: [python, -m, uvicorn, "ai_lab.retrieval:create_app", --factory, --host, "0.0.0.0", --port, "8080", --no-access-log, --log-level, warning]
+    environment:
+      LAB_API_KEY: ${LAB_API_KEY:?Run the lab init command first}
+      ALLOW_FAULTS: "1"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://collector:4318
+      LAB_VERSION: ${LAB_VERSION:-0.1.0-local}
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 256m
+    cpus: 1.0
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: "2"}

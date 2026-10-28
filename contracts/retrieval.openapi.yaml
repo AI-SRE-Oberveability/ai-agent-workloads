@@ -1,0 +1,61 @@
+openapi: 3.1.0
+info:
+  title: Synthetic Retrieval Tool
+  version: 0.1.0
+servers:
+  - url: http://127.0.0.1:18081
+security:
+  - LabKey: []
+paths:
+  /healthz:
+    get:
+      operationId: health
+      security: []
+      responses:
+        '200': {description: Process is running.}
+  /v1/retrieve:
+    post:
+      operationId: retrieve
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [topic]
+              properties:
+                topic: {type: string, enum: [repair, application]}
+                scenario:
+                  type: string
+                  default: healthy
+                  enum: [healthy, empty, timeout, rate_limit, server_error, malformed]
+      responses:
+        '200':
+          description: At most two invented policy passages. Malformed fault mode intentionally violates this response contract.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [documents]
+                properties:
+                  documents:
+                    type: array
+                    maxItems: 2
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [document_id, title, text]
+                      properties:
+                        document_id: {type: string, maxLength: 40}
+                        title: {type: string, maxLength: 100}
+                        text: {type: string, maxLength: 1000}
+        '401': {description: Invalid key.}
+        '403': {description: Faults disabled.}
+        '422': {description: 'Invalid request, sanitized response.'}
+        '429': {description: 'Synthetic rate limit, retry at most once.'}
+        '503': {description: 'Synthetic service failure, retry at most once.'}
+components:
+  securitySchemes:
+    LabKey: {type: apiKey, in: header, name: X-Lab-Key}

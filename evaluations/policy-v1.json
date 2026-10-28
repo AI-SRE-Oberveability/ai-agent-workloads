@@ -1,0 +1,5 @@
+[
+  {"question": "What is needed for repair assistance?", "outcome": "success", "document_ids": ["SYN-REPAIR-001"], "required_phrases": ["SYNTHETIC DEMO ONLY", "human reviewer", "fictional inspection reference"]},
+  {"question": "How do I apply?", "outcome": "success", "document_ids": ["SYN-APPLY-001"], "required_phrases": ["SYNTHETIC DEMO ONLY", "human review"]},
+  {"question": "What is the weather?", "outcome": "unsupported", "document_ids": [], "required_phrases": ["synthetic demo"]}
+]
