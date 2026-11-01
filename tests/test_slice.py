@@ -6,8 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 import yaml
-from conftest import TEST_KEY
-from fastapi.testclient import TestClient
+from conftest import TEST_KEY, serve
 from jsonschema import Draft202012Validator
 from openapi_spec_validator import validate
 
@@ -132,7 +131,10 @@ def test_unsupported_question_does_not_call_tool(lab):
 
 
 def test_auth_input_and_fault_controls():
-    with TestClient(create_app(Settings(TEST_KEY))) as client:
+    with (
+        serve(create_app(Settings(TEST_KEY))) as base_url,
+        httpx.Client(base_url=base_url, trust_env=False) as client,
+    ):
         assert client.post("/v1/ask", json={"question": "repair"}).status_code == 401
         headers = {"X-Lab-Key": TEST_KEY}
         assert (

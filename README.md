@@ -6,7 +6,7 @@ This repository owns the application code, contracts, images, tests and applicat
 
 | POC | Current location | State |
 | --- | --- | --- |
-| Policy assistant | `src/ai_lab`, `contracts`, `evaluations`, `tests`; scenario overview in `pocs/policy-assistant` | Draft with historical local test evidence |
+| Policy assistant | `src/ai_lab`, `contracts`, `evaluations`, `tests`; scenario overview in `pocs/policy-assistant` | Local deterministic HTTP and backend proof recorded; review branch changes pending merge |
 | Service-status investigator | `pocs/service-status` | Planned; no implementation |
 | Read-only SRE copilot | `pocs/sre-copilot` | Planned; no implementation |
 
@@ -34,3 +34,5 @@ requirements.lock.txt      Hash-pinned application dependencies
 The active CI workflow installs requirements-dev.lock.txt with hash verification, checks lint/format, runs HTTP/contract/telemetry tests and builds the synthetic container. Its historical draft is retained separately. GitHub run evidence is recorded in the lab; the complete P2.3 end-to-end/release exit remains separate. Run/lifecycle instructions will be completed at P1.5; no backend delivery is implied by these files.
 
 Azure resources belong to infra; Collector/OneAgent/backend/dashboard configuration belongs to observability-config; coordination, HLD and evidence belong to lab. Never commit credentials, virtual environments, downloaded binaries or raw customer data.
+
+Local review on 1 November 2026 passed 18 tests without warnings. The auth/input/fault control test now uses the same real loopback server fixture as the rest of the suite. Collector/Jaeger ingestion and lifecycle evidence belong to the lab repository; this result does not establish a live model or cloud deployment.
