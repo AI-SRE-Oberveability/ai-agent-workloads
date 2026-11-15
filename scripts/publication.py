@@ -132,23 +132,58 @@ def docker(args, env, input_text=None, allow_failure=False):
     return stdout + stderr if args[0] == "logs" else stdout
 
 
-def http(port, key=None, body=None):
-    data = json.dumps(body).encode() if body is not None else None
-    path = "/v1/ask" if body is not None else "/healthz"
-    headers = {"Content-Type": "application/json"}
-    if key:
-        headers["X-Lab-Key"] = key
-    request = urllib.request.Request("http://127.0.0.1:" + port + path, data=data, headers=headers)
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    try:
-        response = opener.open(request, timeout=3)
-    except urllib.error.HTTPError as error:
-        response = error
-    with response:
-        raw = response.read(65537)
-        if len(raw) > 65536:
-            raise ValueError("Replay HTTP response exceeds bound")
-        return response.code, json.loads(raw)
+PROBE = """import json, os, sys, urllib.request, urllib.error
+request = json.load(sys.stdin)
+mode = request['mode']
+headers = {'Content-Type': 'application/json'}
+body = None if mode == 'health' else {
+    'question': 'How do I apply for repair assistance?',
+    'scenario': 'server_error' if mode == 'fault' else 'healthy'
+}
+if mode in {'auth', 'fault', 'old'}:
+    headers['X-Lab-Key'] = request['old_key'] if mode == 'old' else os.environ['LAB_API_KEY']
+url = 'http://127.0.0.1:8080' + ('/healthz' if mode == 'health' else '/v1/ask')
+req = urllib.request.Request(
+    url, data=json.dumps(body).encode() if body is not None else None, headers=headers
+)
+opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+try:
+    response = opener.open(req, timeout=3)
+except urllib.error.HTTPError as error:
+    response = error
+with response:
+    raw = response.read(65537)
+    if len(raw) > 65536:
+        raise ValueError('Bound exceeded')
+    body = json.loads(raw)
+    citations = body.get('citations', [])
+    print(json.dumps({
+        'status': response.code, 'model_mode': body.get('model_mode'),
+        'outcome': body.get('outcome'),
+        'citation_ok': bool(citations and citations[0].get('document_id') == 'SYN-REPAIR-001')
+    }))
+"""
+
+
+def probe(container, mode, env, old_key=None):
+    payload = {"mode": mode}
+    if old_key is not None:
+        payload["old_key"] = old_key
+    data = docker(
+        ["exec", "--interactive", container, "python", "-c", PROBE],
+        env,
+        input_text=json.dumps(payload),
+    )
+    result = json.loads(data)
+    if (
+        set(result) != {"status", "model_mode", "outcome", "citation_ok"}
+        or result["model_mode"] not in {None, "deterministic-mock"}
+        or result["outcome"] not in {None, "success"}
+        or not isinstance(result["citation_ok"], bool)
+        or not isinstance(result["status"], int)
+    ):
+        raise ValueError("Only sanitized probe result fields accepted")
+    return result
 
 
 def build_context(source_path, source):
@@ -177,7 +212,6 @@ def replay(reference, source, env, directory):
     containers = []
     logs = []
     keys = []
-    body = {"question": "How do I apply for repair assistance?"}
 
     def stop():
         for container in reversed(containers):
@@ -188,7 +222,7 @@ def replay(reference, source, env, directory):
     def start(key, phase):
         phase_dir = private_directory(directory / phase)
         file = synthetic_env(phase_dir, key, source)
-        ports = {}
+        owned = {}
         for component in ["retrieval", "agent"]:
             args = [
                 "run",
@@ -214,8 +248,6 @@ def replay(reference, source, env, directory):
                 "1",
                 "--env-file",
                 str(file),
-                "--publish",
-                "127.0.0.1::8080",
                 reference,
                 "python",
                 "-m",
@@ -234,16 +266,12 @@ def replay(reference, source, env, directory):
             if not re.fullmatch(r"[0-9a-f]{64}", container):
                 raise ValueError("Unexpected owned container ID")
             containers.append(container)
-            port_line = docker(["port", container, "8080/tcp"], env).strip()
-            match = re.fullmatch(r"127\.0\.0\.1:([0-9]+)", port_line)
-            if not match:
-                raise ValueError("Replay port must be loopback-only")
-            ports[component] = match[1]
+            owned[component] = container
             ready = False
             for _ in range(60):
                 try:
-                    status, health = http(match[1])
-                    if status == 200 and health.get("model_mode") == "deterministic-mock":
+                    health = probe(container, "health", env)
+                    if health["status"] == 200 and health["model_mode"] == "deterministic-mock":
                         ready = True
                         break
                 except (OSError, ValueError):
@@ -251,31 +279,29 @@ def replay(reference, source, env, directory):
                 time.sleep(0.25)
             if not ready:
                 raise ValueError("Owned replay service not ready")
-        return ports["agent"]
+        return owned["agent"]
 
     try:
         first = secrets.token_urlsafe(32)
         keys.append(first)
-        port = start(first, "initial")
-        if http(port, body=body)[0] != 401:
+        agent = start(first, "initial")
+        if probe(agent, "unauthorized", env)["status"] != 401:
             raise ValueError("Missing-key rejection failed")
-        code, result = http(port, first, body)
-        if (
-            code != 200
-            or result.get("outcome") != "success"
-            or not result.get("citations")
-            or result["citations"][0]["document_id"] != "SYN-REPAIR-001"
-        ):
+        result = probe(agent, "auth", env)
+        if result["status"] != 200 or result["outcome"] != "success" or not result["citation_ok"]:
             raise ValueError("Pulled digest did not reproduce synthetic citation")
-        if http(port, first, {**body, "scenario": "server_error"})[0] != 403:
+        if probe(agent, "fault", env)["status"] != 403:
             raise ValueError("Faults must remain disabled")
         stop()
         second = secrets.token_urlsafe(32)
         keys.append(second)
-        port = start(second, "rotated")
+        agent = start(second, "rotated")
+        rotated = probe(agent, "auth", env)
         if (
-            http(port, first, body)[0] != 401
-            or http(port, second, body)[1].get("outcome") != "success"
+            probe(agent, "old", env, old_key=first)["status"] != 401
+            or rotated["status"] != 200
+            or rotated["outcome"] != "success"
+            or not rotated["citation_ok"]
         ):
             raise ValueError("Coordinated rotation/old-key rejection failed")
         stop()

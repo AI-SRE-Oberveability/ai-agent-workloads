@@ -141,6 +141,29 @@ class DispatchGuards(unittest.TestCase):
         )
         self.assertFalse(any(".git" in n or ".env" in n for n in names))
 
+    def test_old_key_probe_uses_stdin_not_arguments(self):
+        key = secrets.token_urlsafe(32)
+        safe = {"status": 401, "model_mode": None, "outcome": None, "citation_ok": False}
+        with patch.object(publication, "docker", return_value=json.dumps(safe)) as docker:
+            self.assertEqual(publication.probe("owned", "old", {}, old_key=key), safe)
+            self.assertNotIn(key, str(docker.call_args.args))
+            self.assertEqual(json.loads(docker.call_args.kwargs["input_text"])["old_key"], key)
+
+    def test_probe_rejects_extra_content(self):
+        unsafe = {
+            "status": 200,
+            "model_mode": None,
+            "outcome": None,
+            "citation_ok": False,
+            "raw_body": "not-allowed",
+        }
+        with patch.object(publication, "docker", return_value=json.dumps(unsafe)):
+            with self.assertRaises(ValueError):
+                publication.probe("owned", "health", {})
+
+    def test_embedded_probe_compiles(self):
+        compile(publication.PROBE, "in-container-probe", "exec")
+
 
 class SecretContract(unittest.TestCase):
     def setUp(self):
