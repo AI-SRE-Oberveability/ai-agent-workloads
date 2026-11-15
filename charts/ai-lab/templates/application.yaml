@@ -1,0 +1,97 @@
+{{- if .Values.enabled }}
+{{- if hasSuffix (printf "@sha256:%s" (repeat 64 "0")) .Values.image }}
+{{- fail "zero image digest forbidden" }}
+{{- end }}
+{{- if eq .Values.sourceRevision (repeat 40 "0") }}
+{{- fail "zero source revision forbidden" }}
+{{- end }}
+{{- $root := . }}
+{{- range $component := list "agent" "retrieval" }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-{{ $component }}
+  namespace: {{ $root.Release.Namespace }}
+  labels: {app.kubernetes.io/part-of: ai-lab, app.kubernetes.io/component: {{ $component }}}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $component }}
+  namespace: {{ $root.Release.Namespace }}
+  labels: {app.kubernetes.io/part-of: ai-lab, app.kubernetes.io/component: {{ $component }}}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/part-of: ai-lab, app.kubernetes.io/component: {{ $component }}}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $component }}
+  namespace: {{ $root.Release.Namespace }}
+  labels: {app.kubernetes.io/part-of: ai-lab, app.kubernetes.io/component: {{ $component }}}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels: {app.kubernetes.io/part-of: ai-lab, app.kubernetes.io/component: {{ $component }}}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: ai-lab
+        app.kubernetes.io/component: {{ $component }}
+        ai-lab.example/profile: {{ $root.Values.profile | quote }}
+    spec:
+      serviceAccountName: ai-{{ $component }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: {{ $component }}
+          image: {{ required "immutable workload image required" $root.Values.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: [python, -m, uvicorn, {{ printf "ai_lab.%s:create_app" $component | quote }}, --factory, --host, "0.0.0.0", --port, "8080", --no-access-log, --log-level, warning]
+          env:
+            - name: LAB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "existing Secret name required" $root.Values.existingSecretName | quote }}
+                  key: lab-api-key
+                  optional: false
+            - {name: ALLOW_FAULTS, value: "0"}
+            - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
+            - {name: PYTHONUNBUFFERED, value: "1"}
+            - {name: RETRIEVAL_URL, value: "http://retrieval:8080"}
+            - {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.ai-observability.svc.cluster.local:4318"}
+            - {name: LAB_VERSION, value: {{ required "source revision required" $root.Values.sourceRevision | quote }}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          ports: [{name: http, containerPort: 8080}]
+          startupProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 10
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes:
+        - name: tmp
+          emptyDir: {medium: Memory, sizeLimit: 16Mi}
+{{- end }}
+{{- end }}

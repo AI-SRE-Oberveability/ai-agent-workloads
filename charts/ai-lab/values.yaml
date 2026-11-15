@@ -1,0 +1,5 @@
+enabled: false
+profile: dev
+image: ''
+sourceRevision: ''
+existingSecretName: ''
