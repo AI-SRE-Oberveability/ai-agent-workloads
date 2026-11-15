@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "actions": [
+    {
+      "repository": "actions/upload-artifact",
+      "release": "v7.0.2",
+      "commit": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "release_url": "https://github.com/actions/upload-artifact/releases/tag/v7.0.2"
+    }
+  ]
+}
