@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "tools": {
+    "helm": {
+      "version": "4.3.1",
+      "platforms": {
+        "windows_amd64": {
+          "url": "https://get.helm.sh/helm-v4.3.1-windows-amd64.zip",
+          "archive_sha256": "fcfd7b796dcf0f225abc40b5636a3b01f55f3de2fb1dfb18475df94e62c14112",
+          "member": "windows-amd64/helm.exe",
+          "binary_sha256": "912d7210c880c48b2ac91102b1297d6ac637edd9aaaf05beb12da0b496b53ba9"
+        },
+        "linux_amd64": {
+          "url": "https://get.helm.sh/helm-v4.3.1-linux-amd64.tar.gz",
+          "archive_sha256": "0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b",
+          "member": "linux-amd64/helm",
+          "binary_sha256": "b66cb19f2b31f9d427632ea6c4b4a1ff89b74ecaeaee323cd166da41a7af53bd"
+        }
+      },
+      "upstream_renderer_commit": "94037c4d4e1af4bd0651d37a179fbd9e347e668c",
+      "upstream_tool_versions_sha256": "8adc787f29d015029b51200c0378643ad08883a8990b3607440b95fe5885b050"
+    }
+  }
+}
